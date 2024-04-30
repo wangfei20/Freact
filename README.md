@@ -1,1 +1,1 @@
-Freact, a simple implmentation of React
+Freact, a simple implementation of React
