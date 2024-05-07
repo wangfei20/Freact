@@ -1,3 +1,4 @@
+import element from "./52/element";
 import { isEvent } from "./util";
 
 const INITIAL = 0;
@@ -5,11 +6,6 @@ const WILL_MOUNT = 1;
 const MOUNTED = 2;
 const WILL_UPDATE = 3;
 const UPDATED = 4;
-
-const EVERY_RENDER = 0
-const ON_MOUNT = 1
-const WITH_DEPENDENCIES = 2
-
 const INVALID_NODE = -1
 const DOM_ELEMENT = 0
 const FUNCTION_COMPONENT = 1
@@ -22,7 +18,7 @@ export class ClassComponent{
     
 }
 
-export const Element = function(element, props, children){
+export default Element = function(element, props, children){
         
     this._type = typeof element === "string" ? DOM_ELEMENT: 
                 typeof element === "function" ? FUNCTION_COMPONENT : INVALID_NODE
@@ -30,18 +26,21 @@ export const Element = function(element, props, children){
     this.type = element;    
     this.props = props || {};
 
-    this.children = children.filter(c=> c != null) 
     // Logical Children of Elements
     // HTML element, logical children would all be its visual children
-    // all but string literals (TextNode) would be its Vnode Element
-    // if it's function component, only one child, Vnode Element returned by the function component
-
-    this.functionComponent = this._type === FUNCTION_COMPONENT && element;
-    this.name = this._type === DOM_ELEMENT ? element : this.functionComponent.cname;        
+    // all but string literals (TextNode) would be its Virtual Dom Element
+    
+    this.componentParent = Element.renderingComponent
+    this.logicalChildren = children.filter(c=> c != null) 
+    this.component = this._type === FUNCTION_COMPONENT && element;
+    this.children = this._type === DOM_ELEMENT ? Array.from(this.logicalChildren) : []
+    this.name = this._type === DOM_ELEMENT ? element : this.component.cname;        
     
     this.node = 
-    this.vchild = 
+    this.childNode = 
+    this.parentElement =
     this.parentDom = null;
+    this.index = -1;
 
     this.status = INITIAL
     this.stateData = []
@@ -50,121 +49,57 @@ export const Element = function(element, props, children){
     this.effectIndex = -1
     this.refs = []
     this.refIndex = -1
+    this.contextData = []
+    this.contextIndex = -1
+    this.memo = []
+    this.memoIndex = -1
+    this.callbacks = []
+    this.callbackIndex = -1
 
     //this.sideEffectsToRun = [] should build a side effect queue
 
     this.shouldRerender = false;
 
-    this.createVirtualDomTree = function createVirtualDomTree(){
+    this.createVirtualDomTree = function createVirtualDomTree(props,children){
         
-        const mount = this.vchild == null 
+        const mount = this.status === INITIAL
         this.status = mount ? WILL_MOUNT : WILL_UPDATE
 
-        let vchild = this.functionComponent({
-            ...this.props,
-            "children": this.children.length == 1 ? this.children[0] : this.children
+        // should deep copy children
+
+        // let children = Array.from(this.logicalChildren.length == 1 && Array.isArray(this.logicalChildren[0]) 
+        //                             ? this.logicalChildren[0] : this.logicalChildren);
+        children = Array.from(children.length == 1 && Array.isArray(children[0]) 
+                                     ? children[0] : children);
+        Element.renderingComponent = this;
+
+        let vchild = this.component({
+            ...props,
+            children
         });
 
+        Element.renderingComponent = null
         
         this.status = mount ? MOUNTED : UPDATED
 
         this.stateDataIndex = -1
         this.effectIndex = -1
         this.refIndex = -1
+        this.contextIndex = -1
+        this.memoIndex = -1
+        this.callbackIndex = -1
 
-        return vchild
+        return Array.isArray(vchild) ? vchild[0] : vchild
+    }
+
+    this.getNode = function(){
+        return this.node || this.parentDom
     }
 
     this.createVirtualDomTree.instance = this;
 }
 
-Element.prototype.useRef = function(initial){
-    const index = ++this.refIndex
-    const refs = this.refs
-    if(!refs[index])
-        refs[index] = {current:initial}
-    
-    return refs[index]
-}
-
-Element.prototype.useState = function(initial){
-    const index = ++this.stateDataIndex
-    const stateData = this.stateData
-    if(!stateData[index]){
-        const newData = [initial,(param)=>{
-            let prevData = stateData[index][0]
-            
-            if(prevData != param){
-                stateData[index][0] = typeof param == "function" ? 
-                                             param(prevData) : param
-                //console.log("new state",stateData[index]);
-                this.triggerUpdate(index)
-            }
-        }]
-        stateData[index] = newData
-    }
-    return stateData[index]
-}
-
-Element.prototype.useEffect = function(callback, dependencies){
-
-    const index = ++this.effectIndex
-    const effects = this.effects
-
-    if(dependencies && !Array.isArray(dependencies))
-        console.error("Only a Dependency Array is accepted") 
-
-    let mode = dependencies ? dependencies.length > 0 ? WITH_DEPENDENCIES : ON_MOUNT : EVERY_RENDER
-    let runCallback = mode == EVERY_RENDER;
-
-    if(effects[index]){
-        if(mode == WITH_DEPENDENCIES){
-
-            if(dependencies.length !== effects[index].dependencies.length)
-                throw "Array length should not change"
-
-            effects[index].dependencies.forEach((d,i)=> {
-                if(dependencies[i] !== d){
-                    if(!runCallback)
-                        runCallback = true
-                }
-            })
-        }
-            
-        if(runCallback && callback && effects[index].cleanup)
-            effects[index].cleanup()
-    } else
-        runCallback = true
-    
-    effects[index] = {
-        dependencies,
-        mode
-    }
-
-    if(runCallback){
-        setTimeout(()=>{
-            effects[index].cleanup = callback()
-        },0)
-        
-    }
-        
-}   
-
-Element.prototype.triggerUpdate = function(){
-
-    if(!this.shouldRerender)
-        this.shouldRerender = true
-
-    setTimeout(()=>{
-        if(this.shouldRerender){
-            this.shouldRerender = false
-
-            let newVChild = this.createVirtualDomTree(); 
-            this.children[0].update(newVChild, this)
-        }
-    },0)
-
-}
+Element.renderingComponent = null
 
 Element.prototype.unMount = function(){
     
@@ -178,18 +113,42 @@ Element.prototype.unMount = function(){
     }
 }
 
-Element.prototype.render = function render(parentDom, prevElement){
+Element.prototype.triggerUpdate = function(){
+
+    if(!this.shouldRerender)
+        this.shouldRerender = true
+    let self = this
+    setTimeout(()=>{
+        if(self.shouldRerender){
+            self.shouldRerender = false
+
+            let newVChild = self.createVirtualDomTree(self.props,self.logicalChildren);        
+            self.children[0].update(newVChild, self)
+
+            // if(self.component && self.childProvider){
+            //     console.log("update consumer",self);
+            //     self.childProvider.provider.updateConsumers()
+            // }
+        }
+    },0)
+
+}
+
+Element.prototype.render = function render(parentDom){
+    this._render(0,parentDom)
+}
+Element.prototype._render = function _render(index, parentDom, parentElement, prevElement){
     //HTML Element: create self (dom node) and attach to parent Dom, 
     // more than one (Element) children
     
     //Component Element: run component function, create a sub tree of Elements, 
     // only one Child, the top level Element the function returns
+    this.index = index
+    this.parentElement = parentElement
+    this.parentDom = parentDom
 
-    if(parentDom)
-        this.parentDom = parentDom
-
-    let node 
-
+    let node
+    
     if(this._type == DOM_ELEMENT){
 
         // Create a new tree, unmount old tree
@@ -210,7 +169,7 @@ Element.prototype.render = function render(parentDom, prevElement){
         this.children.forEach((child,index)=>{
            
             if (child instanceof Element){
-                child.render(node)
+                child._render(index,node,this)
             } else {
                 node.appendChild(document.createTextNode(child))                
             }             
@@ -220,7 +179,7 @@ Element.prototype.render = function render(parentDom, prevElement){
         try {
             if(prevElement){
                 let prevNode = prevElement instanceof Element ? 
-                               prevElement.node : prevElement
+                               prevElement.childNode || prevElement.getNode() : prevElement
                 if(parentDom.contains(prevNode)){
                     if(prevElement.unMount)
                         prevElement.unMount()
@@ -235,35 +194,90 @@ Element.prototype.render = function render(parentDom, prevElement){
 
         return node
     } else {
-    
-        let vchild = this.vchild
+        node = parentDom
         
         //create the virtual dom tree if not already existing
-        if(!vchild) 
-            this.children[0] = 
-            this.vchild = 
-            vchild = this.createVirtualDomTree()
+        if(this.status === INITIAL) {
+            this.children[0] = this.createVirtualDomTree(this.props,this.logicalChildren)
+            // if(Array.isArray(subtree))
+            //     this.children = subtree;
+            // else this.children[0] = subtree
+        }
 
         //populate/update the actual dom tree
-        node = this.node = vchild.render(this.parentDom,prevElement)
+        try {
+            //vchild._render(node,this, prevElement)
+            let child = this.children[0]
+            if (child instanceof Element){
+                this.childNode = child._render(0,node,this,prevElement)
+            } else {
+                let textNode = document.createTextNode(child)
+                node.appendChild(textNode)
+                this.childNode = textNode                
+            }
+          
+        } catch (error) {
+            console.log(error);
+        }
 
-        return vchild
+        return this.childNode
     }
 }
 
-Element.prototype.update = function update(newVNode, parentVNode){
-    //HTML Element: create self (dom node) and attach to parent Dom, 
-    // more than one (Element) children
+function isDifferent(oldElement,newElement){
     
-    //Component Element: run component function, create a sub tree of Elements, 
-    // only one Child, the top level Element the function returns
+    if(typeof oldElement !== typeof oldElement)
+        return true
     
-    if(this.type === newVNode.type) {
+    
+    if (oldElement instanceof Element){
 
-        let isComponent = this._type == FUNCTION_COMPONENT
-        let node = isComponent ? parentVNode.node : this.node;
+        if(!newElement instanceof Element || 
+            oldElement.type !== newElement.type || 
+            newElement.logicalChildren.length != oldElement.logicalChildren.length) 
+            return true
+         
+        const newProps = newElement.props
+        const prevProps = oldElement.props
+        const newKeys = Object.keys(newProps)
+        const prevKeys = Object.keys(prevProps)
+
+        if(newKeys.length != prevKeys.length) return true
+        for (let key of newKeys) {
+            if(newProps[key] !== prevProps[key]) return true                
+        }
+
+        for (let i = 0; i < newElement.logicalChildren.length; i++) {
+            const newChild = newElement.logicalChildren[i];
+            let child = oldElement.logicalChildren[i]
+            if(isDifferent(child,newChild))
+                return true
+        }
+            
+    } else if (newElement instanceof Element || oldElement != newElement)
+        return true
+}
+
+function replaceNode(){
+
+}
+
+Element.prototype.update = function(newElement, parentElement){
     
-        const newProps = newVNode.props
+    let shouldUpdate = true
+    if(this.component && this.component.memoized){
+        shouldUpdate = isDifferent(this,newElement)
+        console.log("should update",shouldUpdate, this,newElement);
+    }
+
+    if(!shouldUpdate) return;
+
+    if(this.type === newElement.type) {
+
+        let isComponent = this._type === FUNCTION_COMPONENT
+        let node = this.getNode()//isComponent ? parentElement.node : this.node;
+    
+        const newProps = newElement.props
         const prevProps = this.props
         const newKeys = Object.keys(newProps)
         const prevKeys = Object.keys(prevProps)
@@ -272,7 +286,7 @@ Element.prototype.update = function update(newVNode, parentVNode){
         if(newKeys){
             for (let key of newKeys) {
                 if(newProps[key] !== prevProps[key]){
-                    
+
                     prevProps[key] = newProps[key]
 
                     // Change Dom attributes
@@ -283,8 +297,8 @@ Element.prototype.update = function update(newVNode, parentVNode){
                             prevProps[key].current = node
                         else
                             node.setAttribute(key,newProps[key])
-                    }
-
+                    }              
+                    
                 }
             }
         }
@@ -298,24 +312,24 @@ Element.prototype.update = function update(newVNode, parentVNode){
                     delete prevProps[key]
                 }
             }
-        }    
-
+        }             
+        let newChildren = []
         if(isComponent){
-            //console.log("Update Component",this,newVNode)
-            newVNode.children[0] = this.createVirtualDomTree()
-        }            
+            //console.log("Update Component",this,newElement)
+            newChildren[0] = this.createVirtualDomTree(newElement.props,newElement.logicalChildren)
+        }  else newChildren = newElement.children
         
         // Loop through new children and compare it with previous ones
        
         let len = this.children.length
-        let newLen = newVNode.children.length
+        let newLen = newChildren.length
 
 
         // if(this.props.hasOwnProperty("id")){
         //     console.log("disappear")
         // }
 
-        newVNode.children.forEach((newChild,index)=>{
+        newChildren.forEach((newChild,index)=>{
             if(index < len){
                 let child = this.children[index]
                 
@@ -334,7 +348,7 @@ Element.prototype.update = function update(newVNode, parentVNode){
                     if(typeof newChild instanceof Element)
                     {
                         //typeof child === "string"
-                        newChild.render(node, node.childNodes[index])
+                        newChild._render(index,node, this,node.childNodes[index])
                        
                     } else {
                         
@@ -352,10 +366,10 @@ Element.prototype.update = function update(newVNode, parentVNode){
                 // if(typeof newChild === "string"){
                 //     node.appendChild(document.createTextNode(newChild))                    
                 // } else if (newChild instanceof Element){
-                //     newChild.render(this.node)
+                //     newChild._render(this.node)
                 // }
                 if(newChild instanceof Element){
-                    newChild.render(this.node)              
+                    newChild._render(index,node,this)              
                 } else {
                     node.appendChild(document.createTextNode(newChild))
                     
@@ -365,7 +379,7 @@ Element.prototype.update = function update(newVNode, parentVNode){
             }
         })
 
-        //Unmount additional children from previous render
+        //Unmount additional children from previous _render
         if(len > newLen){
             for (let i = newLen; i < len; i++) {
                 let toDelete = this.children[i]
@@ -375,16 +389,14 @@ Element.prototype.update = function update(newVNode, parentVNode){
                 //uproot the node
                 node.removeChild(node.childNodes[i])
             }
-            //console.log("trim children",this.children);
             this.children.splice(newLen, len - newLen)
-            //console.log(this.children);
         }
 
         
     } else {
-        //render the new Element, take down old tree and build new one
-        const i = parentVNode.children.indexOf(this)
-        newVNode.render(parentVNode.node, this)
-        parentVNode.children.splice(i,1,newVNode)
+        //_render the new Element, take down old tree and build new one
+        newElement._render(this.index,parentElement.getNode(), parentElement, this)
+        parentElement.children.splice(this.index,1,newElement)
     }
+
 }
