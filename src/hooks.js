@@ -4,18 +4,22 @@ const EVERY_RENDER = 0
 const ON_MOUNT = 1
 const WITH_DEPENDENCIES = 2
 
-Element.prototype.useRef = function(initial){
-    const index = ++this.refIndex
-    const refs = this.refs
-    if(!refs[index])
-        refs[index] = {current:initial}
-    
-    return refs[index]
+function findProvider(element, context){
+    if(element.provider && Object.is(element.provider._context,context)){
+        return element.provider
+    } else if(element.parentElement) 
+        return findProvider(element.parentElement,context)
 }
 
-Element.prototype.useState = function(initial){
-    const index = ++this.stateDataIndex
-    const stateData = this.stateData
+export const useRef = function(initial){
+    return useState({current:initial})[0]
+    //return Element.renderingComponent.useRef(initial)
+}
+
+export const useState = function(initial){
+    const component = Element.renderingComponent
+    const index = ++component.stateDataIndex
+    const stateData = component.stateData
     if(!stateData[index]){
         const newData = [initial,(param)=>{
             let prevData = stateData[index][0]
@@ -24,7 +28,7 @@ Element.prototype.useState = function(initial){
                 stateData[index][0] = typeof param == "function" ? 
                                              param(prevData) : param
                 //console.log("new state",stateData[index]);
-                this.triggerUpdate(index)
+                component.triggerUpdate(index)
             }
         }]
         stateData[index] = newData
@@ -32,83 +36,11 @@ Element.prototype.useState = function(initial){
     return stateData[index]
 }
 
-Element.prototype.useMemo = function(callback, dependencies){
+export const useEffect = function(callback, dependencies){
+    const component = Element.renderingComponent
 
-    const index = ++this.memoIndex
-    const memo = this.memo
-
-    let shouldCache = false
-
-    if(memo[index]){
-        if(dependencies){
-            for (let i = 0; i < dependencies.length; i++) {
-                const oldValue = memo[index].dependencies[i];
-                if(!Object.is(dependencies[i],oldValue)){
-                    shouldCache=true
-                    break
-                }
-                
-            }
-        }
-        //     memo[index].dependencies.forEach((d,i)=> {
-        //         if(!Object.is(dependencies[i],d)){
-        //             return callback()
-        //         }
-        //     })
-    } else shouldCache=true
-    
-    if(shouldCache) {
-        let memorizedValue = callback()
-        memo[index] = {
-            callback,
-            memorizedValue,
-            dependencies
-        }
-    }
-    
-    return memo[index].memorizedValue
-        
-}  
-
-Element.prototype.useCallback = function(cachedCallback, dependencies){
-
-    const index = ++this.callbackIndex
-    const callbacks = this.callbacks
-    
-    let shouldCache = false
-
-    //When the dependencies array is empty, useCallback only use cached value
-    if(callbacks[index]){
-        if(dependencies){
-            // callbacks[index].dependencies.forEach((d,i)=> {
-            //     if(!Object.is(dependencies[i],d)){
-                    
-            //     }
-            // })
-            for (let i = 0; i < dependencies.length; i++) {
-                const oldValue = callbacks[index].dependencies[i];
-                if(!Object.is(dependencies[i],oldValue)){
-                    shouldCache=true
-                    break
-                }
-                
-            }
-        }
-    } else shouldCache = true //first render
-    
-    if(shouldCache)
-        callbacks[index] = {
-            cachedCallback,
-            dependencies
-        }
-    //always return the cached
-    return callbacks[index].cachedCallback   
-}  
-
-Element.prototype.useEffect = function(callback, dependencies){
-
-    const index = ++this.effectIndex
-    const effects = this.effects
+    const index = ++component.effectIndex
+    const effects = component.effects
 
     if(dependencies && !Array.isArray(dependencies))
         console.error("Only a Dependency Array is accepted") 
@@ -146,67 +78,65 @@ Element.prototype.useEffect = function(callback, dependencies){
         },0)
         
     }
-        
-}   
 
-Element.prototype.useContext = function(context){
-    
+    //Element.renderingComponent.useEffect(callback, dependencies)
+}
+
+export const useContext = function(context){
+    const component = Element.renderingComponent
     let value
 
     if(context.providers.length > 0 ){
-        const provider = findProvider(this.parentElement,context)
-        provider.setConsumer(this)
+        const provider = findProvider(component.parentElement,context)
+        //provider.setConsumer(component)
         value = provider.value
     } else value = context.value
 
-    const index = ++this.contextIndex
-    const contextData = this.contextData
+    const index = ++component.contextIndex
+    const contextData = component.contextData
     contextData[index] = value
 
     return value
 }
 
+function _useMemo(callback,dependencies, runCallback){
+    const component = Element.renderingComponent
+    const index = ++component.memoIndex
+    const memo = component.memos
 
-function findProvider(element, context){
-    if(element.provider && Object.is(element.provider._context,context)){
-        return element.provider
-    } else if(element.parentElement) 
-        return findProvider(element.parentElement,context)
+    let shouldCache = false
+
+    if(memo[index]){
+        if(dependencies){
+            for (let i = 0; i < dependencies.length; i++) {
+                const oldValue = memo[index].dependencies[i];
+                if(!Object.is(dependencies[i],oldValue)){
+                    shouldCache=true
+                    break
+                }
+                
+            }
+        }
+    } else shouldCache=true
+    
+    if(shouldCache) {
+        memo[index] = {
+            callback,
+            dependencies
+        }
+        if(runCallback){
+            let memorizedValue = callback()
+            memo[index].memorizedValue = memorizedValue
+        }
+    }
+    
+    return runCallback ? memo[index].memorizedValue : memo[index].callback
 }
-
-export const useRef = function(initial){
-
-    return Element.renderingComponent.useRef(initial)
-}
-
-export const useState = function(initial){
-
-    // let caller = arguments.callee.caller.caller
-    // if(!caller.instance && !(caller = caller.caller).instance)
-    //     throw "Incorrect usage of useState. Should only be called inside top level of Components or Hooks"
-
-    // return caller.instance.useState(initial)
-    return Element.renderingComponent.useState(initial)
-}
-
-export const useEffect = function(callback, dependencies){
-    Element.renderingComponent.useEffect(callback, dependencies)
-}
-
-
-export const useContext = function(context){
-    return Element.renderingComponent.useContext(context)
-}
-
 
 export const useCallback = function(callback,dependencies){
-    return Element.renderingComponent.useCallback(callback,dependencies)
+    return _useMemo(callback,dependencies)
 }
 
 export const useMemo = function(callback,dependencies){
-    // let caller = arguments.callee.caller.caller
-    // if(!caller.instance && !(caller = caller.caller).instance)
-    //     throw "Incorrect usage of useMemo. Should only be called inside top level of Components or Hooks"
-
-    return Element.renderingComponent.useMemo(callback,dependencies)
+    return _useMemo(callback,dependencies,true)
 }

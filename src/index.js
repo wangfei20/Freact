@@ -1,28 +1,40 @@
 import Element from "./element"
+import { flattenArray, deepCompare } from "./util"
 
-function createElement(node, props, ...children){
-    return new Element(node, props, 
-            children.length == 1 && Array.isArray(children[0])   
-            ? children[0] : children);
+const Fragment = ({children})=>{
+    return children
+}
+
+function createElement(type, props, ...children){
+    if(Array.isArray(children))
+        children = flattenArray(children)
+    return new Element(type, props, children)
 }
 
 function render(element, container){
     element.render(container)
 }
+
 function memo(component){
     function MemoComponent(props){
-        return createElement(component,props)
+        let element = Element.renderingComponent.children[0]
+        let children = props.children
+        delete props.children
+        if(!element || !deepCompare(element.props,props)){
+            element = createElement(component,props,...children)
+        }
+        return element
     }
 
-    MemoComponent.memoized = true
     return MemoComponent
 }
 
 export {useRef,useEffect,useState,
-    useContext,useMemo,useCallback} from "./hooks"
-export {createContext} from "./context"
-export {memo}
+        useMemo,useCallback} from "./hooks"
+export {createContext,useContext} from "./context"
+export {useRouter, Link} from "./router"
+export {memo,render}
 export default {
     createElement,
-    render
+    Fragment
 }

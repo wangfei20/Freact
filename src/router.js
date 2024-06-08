@@ -1,14 +1,16 @@
 import React,{useState,useEffect} from "./index"
 
-export function Link({href, children}){
-    return <span onclick={function(){
+function Link({href, children,className}){
+    return <span class={className} onclick={function(){
         _Router.push(href)
     }}>{children}</span>
 }
+
+
 class Router extends EventTarget {
     constructor(){
         super()
-        this.pathname = window.location.pathname
+        this.pathname = typeof window !== "undefined" ? window.location.pathname : ""
     }
 
     push(url){
@@ -19,26 +21,29 @@ class Router extends EventTarget {
     replace(url){
         window.history.replaceState({},"",url)
     }
-
 }
 
-const _Router = new Router()
+let _Router = new Router()
 
-export const useRouter = function(){
+const useRouter = function(){
     const [router,setRouter] = useState(_Router)
     function update(event) {
         setRouter({..._Router, pathname : window.location.pathname})
     }
     useEffect(()=>{
-        console.log("listen popstate");
+
         window.addEventListener('popstate', update);
         _Router.addEventListener('popstate', update);
         return ()=>{
-            console.log("stop listen popstate");
             window.removeEventListener('popstate', update);
             _Router.removeEventListener('popstate', update);
         }
     },[])
     return router
+}
+
+export {
+    useRouter,
+    Link
 }
 
