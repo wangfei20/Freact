@@ -1,4 +1,4 @@
-import { isEvent,flattenArray } from "./util";
+import { isEvent,flattenArray,deepCompare } from "./util";
 
 const INITIAL = 0;
 const WILL_MOUNT = 1;
@@ -71,6 +71,11 @@ class Element extends EventTarget {
         children = Array.from(flattenArray(children));
         Element.renderingComponent = this;
 
+        this.stateDataIndex = -1;
+        this.effectIndex = -1;
+        this.contextIndex = -1;
+        this.memoIndex = -1;
+        
         let vchild = this.component({
             ...props,
             children
@@ -224,7 +229,7 @@ class Element extends EventTarget {
 
         let shouldUpdate = true;
         if (this.component && this.component.memoized) {
-            shouldUpdate = isDifferent(this, newElement);
+            shouldUpdate = !deepCompare(this.props,newElement.props)//isDifferent(this, newElement);
             console.log("should update", shouldUpdate, this, newElement);
         }
 
