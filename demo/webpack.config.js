@@ -1,7 +1,4 @@
-
 const path = require('path');
-
-const webpack = require('webpack');
 
 module.exports = {
   mode: 'development',
@@ -17,7 +14,6 @@ module.exports = {
         test: /\.(js|jsx|mjs)$/,
         exclude: /node_modules/,
         use: [
-             //"./utils/loader.js",
              'babel-loader'
         ],
       },
@@ -33,20 +29,19 @@ module.exports = {
   },
   plugins:[
     require('autoprefixer'),
-    //require('postcss-modules'),
     require('tailwindcss'),
   ],
   resolve: {
     extensions: ['.js', '.jsx', ".mjs"],
     alias: {
       '@': path.resolve(__dirname), 
-      '@freact': path.resolve(__dirname,"../src"), 
+      'freact': path.resolve(__dirname,"../src"), 
     },
   },
   devServer: {
     static: {
-      directory: path.join(__dirname, 'dist'), // Serve content from the 'src' directory
+      directory: path.join(__dirname, 'dist'), 
     },
-    hot: true, // Enable hot module replacement
+    hot: true, 
   },
 };

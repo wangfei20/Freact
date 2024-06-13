@@ -6,6 +6,12 @@ function Link({href, children,className}){
     }}>{children}</span>
 }
 
+function Route({path, component, exact}){
+    const router = useRouter()
+    let show = exact ? router.pathname == path : new RegExp(`^${path}`,"img").test(router.pathname)
+    return show ? React.createElement(component) : <div/> 
+}
+
 
 class Router extends EventTarget {
     constructor(){
@@ -44,6 +50,7 @@ const useRouter = function(){
 
 export {
     useRouter,
-    Link
+    Link,
+    Route
 }
 

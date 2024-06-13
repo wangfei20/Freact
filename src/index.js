@@ -12,18 +12,18 @@ function createElement(type, props, ...children){
     return new Element(type, props, children)
 }
 
-// function cloneElement(element, props){    
+// function cloneElement(element, props){
 //     element.props = props
 //     return element
 // }
 
 function cloneElement(type, props,children){
-    
+
     if(!children){
         children = props.children
         delete props.children
     }
-        
+
     return new Element(type, props, children)
 }
 
@@ -52,6 +52,5 @@ export {createContext,useContext} from "./context"
 export {cloneElement,memo,render}
 export default {
     createElement,
-    
     Fragment
 }

@@ -1,5 +1,5 @@
-import React from "@freact"
-import {useRouter} from '@freact/router'
+import React from "freact"
+import {useRouter} from 'freact/router'
 
 export function Route({path,component,exact}){
     const router = useRouter()

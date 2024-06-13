@@ -1,22 +1,22 @@
 import React, {memo,useState,useEffect,
-        useRef,useContext,createContext,useMemo} from '@freact'
-import {useRouter, Link} from '@freact/router'
-import {Route} from './simpleRouter'
+        useRef,useContext,createContext,useMemo} from 'freact'
+import {Route, Link} from 'freact/router'
+//import {Route} from './simpleRouter'
 
-function Greeting({name,loading}) {
-
-    return <div>
-        {loading ? <p>Loading</p> : null}
-        <h1>Hello, {name}!</h1>
-    </div>;
-  }
+function Greeting({name}) {
+  return (
+    <>
+        <h1>Greetings, {name || "friend"}!</h1>   
+    </>
+  )
+}
 
 
 function Section({sectionLevel,children }) {
   const [level,setLevel] = useState(sectionLevel)
   return (
     <LevelContext.Provider value={{level,setLevel}}>
-    <section class="section bg-slate-300">
+    <section className="section bg-slate-300">
         {children}
     </section>
       </LevelContext.Provider>
@@ -30,47 +30,35 @@ function LevelProvider({children}){
     {children}
   </LevelContext.Provider>
 }
-LevelProvider.cname="LevelProvider"
 
 function Heading({ children }) {
-  const {level,setLevel} = useContext(LevelContext);
-  const content = useMemo(()=>{
-    if(level < 3)
-      return "high Level"
-    else 
-      return "low level"
-  },[level])
+  const { level, setLevel } = useContext(LevelContext);
 
-  function AddLevel(){
-    console.log("add level",level);
-    setLevel(level+1)
-  }
+  const content = useMemo(() => {
+    if (level < 3) {
+      return 'High Level';
+    } else {
+      return 'Low level';
+    }
+  }, [level]);
 
-  switch (level) {
-    case 0:
-      throw Error('Heading must be inside a Section!');
-    case 1:
-      return <h1>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button></h1>;
-    case 2:
-      return <h2>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button></h2>;
-    case 3:
-      return <h3>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button>
-      </h3>;
-    case 4:
-      return <h4>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button></h4>;
-    case 5:
-      return <h5>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button></h5>;
-    default:
-      return <h6>{`${level}:${children}. this is ${content}`}
-      <button onclick={AddLevel}>add</button></h6>;
-  }
+  const handleAddLevel = (
+) => {
+    setLevel((prevLevel) => prevLevel + 1);
+  };
+
+  const HeadingElement = `h${level}`;
+
+  return (
+    <div>
+      <HeadingElement>
+        {`${level}: ${children}. This is ${content}.`}
+      </HeadingElement>
+      <button onclick={handleAddLevel}>Add</button>
+    </div>
+  );
 }
-Heading.cname = "Heading"
+
 
 function Level(){
  
@@ -87,12 +75,6 @@ function Level(){
   </Section>
   </Section>
 }
-Level.cname = "Level"
-
-function Layout1({children}) {
-  return children
-
-}
 
 export default function Layout({children}) {
   return <div>
@@ -100,7 +82,7 @@ export default function Layout({children}) {
       <Link href="/page1" className="px-5 font-bold cursor-pointer">Page1</Link>
       <Link href="/page2" className="px-5 font-bold cursor-pointer">Page2</Link>
     </div>
-    <Route path="/page1" component={Example}/>
+    <Route path="/page1" component={Greeting}/>
     <Route path="/page2" component={Level}/>
   </div>
 }
@@ -143,14 +125,7 @@ function ChildComponent(){
     const toggleLoad = (e) => {
       setLoading(!loading)
     }
-
-    // return <section>
-    //   {isAuthenticated ?  
-    //   <h1>hi<button onclick={toggleAuth}>change</button></h1>: 
-    //   <h2>h2<button onclick={toggleAuth}>change</button></h2>
-    //   }</section>
-
-    return <div ref={section} class={isAuthenticated ? 'authenticated' : 'none'}>
+    return <div ref={section} className={isAuthenticated ? 'authenticated' : 'none'}>
       {/* {
         loading ? <Greeting name= "fei" loading={loading}/> :
                   <Content/>
@@ -158,13 +133,13 @@ function ChildComponent(){
       <Greeting name= "fei" loading={loading}/>
       <MemoContent content='school'></MemoContent>
       <p>User is {isAuthenticated ? 'authenticated' : 'not authenticated'}</p>
-      <button onclick={toggleAuth} class='button primary'>
+      <button onclick={toggleAuth} className='button primary'>
         {
             isAuthenticated ? 'Logout' : 'Login'
             
         }
       </button>
-      <button onclick={toggleLoad} class='button primary'>
+      <button onclick={toggleLoad} className='button primary'>
         {
             loading ? 'Stop' : 'Loading'
             
@@ -179,13 +154,12 @@ const MemoContent = memo(Content)
 
 function Content({content}){
   console.log("content");
-  return <div class="content" data-set-carousel="true">{content || "hello no"}</div>
+  return <div className="content" data-set-carousel="true">{content || "hello no"}</div>
 }
 
 function Example() {
   const [count, setCount] = useState(0);
   const intervalRef = useRef(null)
-
 
   useEffect(() => {
     
@@ -195,7 +169,7 @@ function Example() {
     return () => {
       clearInterval(intervalRef.current);
     };
-  },[]); // Missing dependency array
+  },[]);
 
   function startWatch(){
     intervalRef.current = setInterval(() => {
