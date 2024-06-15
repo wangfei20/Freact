@@ -230,7 +230,7 @@ class Element extends EventTarget {
         let shouldUpdate = true;
         if (this.component && this.component.memoized) {
             shouldUpdate = !deepCompare(this.props,newElement.props)//isDifferent(this, newElement);
-            console.log("should update", shouldUpdate, this, newElement);
+            //console.log("should update", shouldUpdate, this, newElement);
         }
 
         if (!shouldUpdate) return;
